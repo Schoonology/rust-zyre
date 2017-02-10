@@ -1,0 +1,7 @@
+[package]
+name = "zyre"
+version = "0.1.0"
+authors = ["Schoonology <michael.r.schoonmaker@gmail.com>"]
+
+[dependencies]
+zyre-sys = { version = "0.1.0", path = "zyre-sys" }
