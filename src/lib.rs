@@ -8,55 +8,51 @@ use zyre_sys::{ zmsg_t, zyre_t };
 
 pub type Result<T> = result::Result<T, Error>;
 
-pub struct Error {
-  message: String,
-}
-
-impl Error {
-  fn new(message:&str) -> Error {
-    Error {
-      message:message.to_owned(),
-    }
-  }
+pub enum Error {
+  ToCString(std::ffi::NulError),
+  FromCStr(std::str::Utf8Error),
+  StartFailed,
+  JoinFailed,
+  LeaveFailed,
+  ReadInterrupted,
 }
 
 impl error::Error for Error {
   fn description(&self) -> &str {
-    &self.message
+    match *self {
+      Error::ToCString(ref inner) => inner.description(),
+      Error::FromCStr(ref inner) => inner.description(),
+      Error::StartFailed => "Zyre node failed to start",
+      Error::JoinFailed => "Failed to join Zyre group",
+      Error::LeaveFailed => "Failed to leave Zyre group",
+      Error::ReadInterrupted => "Read was interrupted",
+    }
   }
 }
 
 impl fmt::Debug for Error {
   fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-    write!(formatter, "{}", &self.message)
+    use std::error::Error;
+    write!(formatter, "{}", (*self).description())
   }
 }
 
 impl fmt::Display for Error {
   fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-    write!(formatter, "{}", &self.message)
+    use std::error::Error;
+    write!(formatter, "{}", (*self).description())
   }
 }
 
 impl std::convert::From<std::ffi::NulError> for Error {
-  fn from(other:std::ffi::NulError) -> Error {
-    Error {
-      message: {
-        use std::error::Error;
-        other.description().to_owned()
-      },
-    }
+  fn from(inner:std::ffi::NulError) -> Error {
+    Error::ToCString(inner)
   }
 }
 
 impl std::convert::From<std::str::Utf8Error> for Error {
-  fn from(other:std::str::Utf8Error) -> Error {
-    Error {
-      message: {
-        use std::error::Error;
-        other.description().to_owned()
-      },
-    }
+  fn from(inner:std::str::Utf8Error) -> Error {
+    Error::FromCStr(inner)
   }
 }
 
@@ -96,7 +92,7 @@ impl Zyre {
       let rc = zyre_sys::zyre_start(self.sys);
       if rc != 0 {
         // TODO(schoon) - Get the reason from Zyre.
-        Err(Error::new("Failed to start Zyre node."))
+        Err(Error::StartFailed)
       } else {
         Ok(())
       }
@@ -114,7 +110,7 @@ impl Zyre {
       let rc = zyre_sys::zyre_join(self.sys, CString::new(group)?.as_ptr());
       if rc != 0 {
         // TODO(schoon) - Get the reason from Zyre.
-        Err(Error::new("Failed to join Zyre group."))
+        Err(Error::JoinFailed)
       } else {
         Ok(())
       }
@@ -126,7 +122,7 @@ impl Zyre {
       let rc = zyre_sys::zyre_leave(self.sys, CString::new(group)?.as_ptr());
       if rc != 0 {
         // TODO(schoon) - Get the reason from Zyre.
-        Err(Error::new("Failed to leave Zyre group."))
+        Err(Error::LeaveFailed)
       } else {
         Ok(())
       }
@@ -138,7 +134,7 @@ impl Zyre {
       let event = zyre_sys::zyre_event_new(self.sys);
 
       if event.is_null() {
-        Err(Error::new("Interrupted read_event."))
+        Err(Error::ReadInterrupted)
       } else {
         Ok(Event::new(event))
       }
