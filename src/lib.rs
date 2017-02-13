@@ -61,10 +61,15 @@ pub struct Zyre {
 }
 
 impl Zyre {
-  pub fn new(name: &str) -> Result<Zyre> {
+  pub fn new(name: Option<&str>) -> Result<Zyre> {
     unsafe {
+      let sys = match name {
+        Some(value) => zyre_sys::zyre_new(CString::new(value)?.as_ptr()),
+        None => zyre_sys::zyre_new(0 as *mut _),
+      };
+
       Ok(Zyre {
-        sys: zyre_sys::zyre_new(CString::new(name)?.as_ptr()),
+        sys: sys,
       })
     }
   }
@@ -308,19 +313,19 @@ mod tests {
 
   #[test]
   fn new_destroy() {
-    let mut zyre = Zyre::new("test").ok().unwrap();
+    let mut zyre = Zyre::new(None).ok().unwrap();
     zyre.destroy();
   }
 
   #[test]
   fn double_destroy() {
-    let mut zyre = Zyre::new("test").ok().unwrap();
+    let mut zyre = Zyre::new(None).ok().unwrap();
     zyre.destroy();
     zyre.destroy();
   }
 
   fn acquire_context<F>(test_fn:F) where F:Fn(&Zyre) {
-    let mut zyre = Zyre::new("test").ok().unwrap();
+    let mut zyre = Zyre::new(Some("test")).ok().unwrap();
 
     test_fn(&zyre);
 
