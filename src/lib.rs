@@ -169,6 +169,7 @@ impl Drop for Zyre {
   }
 }
 
+#[derive(Debug)]
 pub struct Event {
   sys: *mut zyre_sys::zyre_event_t,
 }
@@ -229,6 +230,7 @@ impl Drop for Event {
   }
 }
 
+#[derive(Debug)]
 pub struct Message {
   sys: *mut zmsg_t,
 }
