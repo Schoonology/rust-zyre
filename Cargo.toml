@@ -1,7 +1,13 @@
 [package]
 name = "zyre"
 version = "0.2.0"
+description = "High-level abstraction around the Zyre library."
 authors = ["Schoonology <michael.r.schoonmaker@gmail.com>"]
+repository = "https://github.com/Schoonology/rust-zyre"
+keywords = ["zeromq", "services", "discovery", "network"]
+categories = ["api-bindings"]
+readme = "README.md"
+license = "MIT"
 
 [dependencies]
 zyre-sys = { version = "0.1.0", path = "zyre-sys" }
