@@ -92,7 +92,7 @@ impl Zyre {
     }
   }
 
-  pub fn start(&self) -> Result<()> {
+  pub fn start(&mut self) -> Result<()> {
     unsafe {
       let rc = zyre_sys::zyre_start(self.sys);
       if rc != 0 {
@@ -104,13 +104,13 @@ impl Zyre {
     }
   }
 
-  pub fn stop(&self) {
+  pub fn stop(&mut self) {
     unsafe {
       zyre_sys::zyre_stop(self.sys);
     }
   }
 
-  pub fn join(&self, group:&str) -> Result<()> {
+  pub fn join(&mut self, group:&str) -> Result<()> {
     unsafe {
       let rc = zyre_sys::zyre_join(self.sys, CString::new(group)?.as_ptr());
       if rc != 0 {
@@ -122,7 +122,7 @@ impl Zyre {
     }
   }
 
-  pub fn leave(&self, group:&str) -> Result<()> {
+  pub fn leave(&mut self, group:&str) -> Result<()> {
     unsafe {
       let rc = zyre_sys::zyre_leave(self.sys, CString::new(group)?.as_ptr());
       if rc != 0 {
@@ -134,7 +134,7 @@ impl Zyre {
     }
   }
 
-  pub fn read_event(&self) -> Result<Event> {
+  pub fn read_event(&mut self) -> Result<Event> {
     unsafe {
       let event = zyre_sys::zyre_event_new(self.sys);
 
@@ -146,7 +146,7 @@ impl Zyre {
     }
   }
 
-  pub fn whisper(&self, peer:&str, mut msg:Message) -> Result<()> {
+  pub fn whisper(&mut self, peer:&str, mut msg:Message) -> Result<()> {
     unsafe {
       zyre_sys::zyre_whisper(self.sys, CString::new(peer)?.as_ptr(), &mut msg.unwrap());
     }
@@ -154,7 +154,7 @@ impl Zyre {
     Ok(())
   }
 
-  pub fn shout(&self, group:&str, mut msg:Message) -> Result<()> {
+  pub fn shout(&mut self, group:&str, mut msg:Message) -> Result<()> {
     unsafe {
       zyre_sys::zyre_shout(self.sys, CString::new(group)?.as_ptr(), &mut msg.unwrap());
     }
@@ -171,14 +171,12 @@ impl Drop for Zyre {
 
 pub struct Event {
   sys: *mut zyre_sys::zyre_event_t,
-  msg: Message,
 }
 
 impl Event {
   fn new(event:*mut zyre_sys::zyre_event_t) -> Event {
     Event {
       sys: event,
-      msg: unsafe { Message::from_ptr(zyre_sys::zyre_event_get_msg(event)) }
     }
   }
 
@@ -218,8 +216,10 @@ impl Event {
     }
   }
 
-  pub fn message(&self) -> &Message {
-    &self.msg
+  pub fn message(&mut self) -> Message {
+    unsafe {
+      Message::from_ptr(zyre_sys::zyre_event_get_msg(self.sys))
+    }
   }
 }
 
@@ -241,7 +241,7 @@ impl Message {
   }
 
   pub fn from_frames(frames:Vec<&str>) -> Result<Message> {
-    let msg = Message::new();
+    let mut msg = Message::new();
 
     for frame in frames {
       msg.push(frame)?;
@@ -274,7 +274,7 @@ impl Message {
     }
   }
 
-  pub fn push(&self, frame:&str) -> Result<()> {
+  pub fn push(&mut self, frame:&str) -> Result<()> {
     unsafe {
       zyre_sys::zmsg_pushstr(self.sys, CString::new(frame)?.as_ptr());
     }
@@ -282,13 +282,13 @@ impl Message {
     Ok(())
   }
 
-  pub fn pop(&self) -> Result<&str> {
+  pub fn pop(&mut self) -> Result<&str> {
     unsafe {
       Ok(CStr::from_ptr(zyre_sys::zmsg_popstr(self.sys)).to_str()?)
     }
   }
 
-  pub fn collect(&self) -> Result<Vec<&str>> {
+  pub fn collect(&mut self) -> Result<Vec<&str>> {
     let mut frames = Vec::with_capacity(self.size());
 
     for _ in 0..self.size() {
@@ -324,41 +324,41 @@ mod tests {
     zyre.destroy();
   }
 
-  fn acquire_context<F>(test_fn:F) where F:Fn(&Zyre) {
+  fn acquire_context<F>(test_fn:F) where F:Fn(&mut Zyre) {
     let mut zyre = Zyre::new(Some("test")).ok().unwrap();
 
-    test_fn(&zyre);
+    test_fn(&mut zyre);
 
     zyre.destroy();
   }
 
   #[test]
   fn uuid_length() {
-    acquire_context(|zyre:&Zyre| {
+    acquire_context(|zyre:&mut Zyre| {
       assert_eq!(zyre.uuid().unwrap().len(), 32);
     });
   }
 
   #[test]
   fn name_value() {
-    acquire_context(|zyre:&Zyre| {
+    acquire_context(|zyre:&mut Zyre| {
       assert_eq!(zyre.name().unwrap(), "test");
     });
   }
 
   #[test]
   fn start_stop() {
-    acquire_context(|zyre:&Zyre| {
+    acquire_context(|zyre:&mut Zyre| {
       zyre.start().ok();
       zyre.stop();
     });
   }
 
-  fn acquire_started_context<F>(test_fn:F) where F:Fn(&Zyre) {
-    acquire_context(|zyre:&Zyre| {
+  fn acquire_started_context<F>(test_fn:F) where F:Fn(&mut Zyre) {
+    acquire_context(|zyre:&mut Zyre| {
       zyre.start().ok();
 
-      test_fn(&zyre);
+      test_fn(zyre);
 
       zyre.stop();
     });
@@ -366,7 +366,7 @@ mod tests {
 
   #[test]
   fn join_leave() {
-    acquire_started_context(|zyre:&Zyre| {
+    acquire_started_context(|zyre:&mut Zyre| {
       zyre.join("GLOBAL").ok();
       zyre.leave("GLOBAL").ok();
     });
@@ -374,14 +374,14 @@ mod tests {
 
   #[test]
   fn read_event() {
-    acquire_started_context(|zyre:&Zyre| {
+    acquire_started_context(|zyre:&mut Zyre| {
       zyre.read_event().ok();
     });
   }
 
   #[test]
   fn event_read_destroy() {
-    acquire_started_context(|zyre:&Zyre| {
+    acquire_started_context(|zyre:&mut Zyre| {
       let mut event = zyre.read_event().unwrap();
       event.destroy();
     });
@@ -389,7 +389,7 @@ mod tests {
 
   #[test]
   fn event_double_destroy() {
-    acquire_started_context(|zyre:&Zyre| {
+    acquire_started_context(|zyre:&mut Zyre| {
       let mut event = zyre.read_event().unwrap();
       event.destroy();
       event.destroy();
