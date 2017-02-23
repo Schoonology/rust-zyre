@@ -299,6 +299,7 @@ impl Message {
         CStr::from_ptr(zyre_sys::zmsg_popstr(self.sys)).to_str()?
       });
     }
+    frames.reverse();
 
     Ok(frames)
   }
