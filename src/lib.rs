@@ -110,9 +110,9 @@ impl Zyre {
     }
   }
 
-  pub fn join(&mut self, group:&str) -> Result<()> {
+  pub fn join<T>(&mut self, group:T) -> Result<()> where T:AsRef<str>{
     unsafe {
-      let rc = zyre_sys::zyre_join(self.sys, CString::new(group)?.as_ptr());
+      let rc = zyre_sys::zyre_join(self.sys, CString::new(group.as_ref())?.as_ptr());
       if rc != 0 {
         // TODO(schoon) - Get the reason from Zyre.
         Err(Error::JoinFailed)
@@ -122,9 +122,9 @@ impl Zyre {
     }
   }
 
-  pub fn leave(&mut self, group:&str) -> Result<()> {
+  pub fn leave<T>(&mut self, group:T) -> Result<()> where T:AsRef<str> {
     unsafe {
-      let rc = zyre_sys::zyre_leave(self.sys, CString::new(group)?.as_ptr());
+      let rc = zyre_sys::zyre_leave(self.sys, CString::new(group.as_ref())?.as_ptr());
       if rc != 0 {
         // TODO(schoon) - Get the reason from Zyre.
         Err(Error::LeaveFailed)
@@ -146,17 +146,17 @@ impl Zyre {
     }
   }
 
-  pub fn whisper(&mut self, peer:&str, mut msg:Message) -> Result<()> {
+  pub fn whisper<T>(&mut self, peer:T, mut msg:Message) -> Result<()> where T:AsRef<str> {
     unsafe {
-      zyre_sys::zyre_whisper(self.sys, CString::new(peer)?.as_ptr(), &mut msg.unwrap());
+      zyre_sys::zyre_whisper(self.sys, CString::new(peer.as_ref())?.as_ptr(), &mut msg.unwrap());
     }
 
     Ok(())
   }
 
-  pub fn shout(&mut self, group:&str, mut msg:Message) -> Result<()> {
+  pub fn shout<T>(&mut self, group:T, mut msg:Message) -> Result<()> where T:AsRef<str> {
     unsafe {
-      zyre_sys::zyre_shout(self.sys, CString::new(group)?.as_ptr(), &mut msg.unwrap());
+      zyre_sys::zyre_shout(self.sys, CString::new(group.as_ref())?.as_ptr(), &mut msg.unwrap());
     }
 
     Ok(())
@@ -240,7 +240,8 @@ impl Message {
     }
   }
 
-  pub fn from_frames(frames:Vec<&str>) -> Result<Message> {
+  pub fn from_frames<T>(frames:Vec<T>) -> Result<Message>
+  where T:AsRef<str> {
     let mut msg = Message::new();
 
     for frame in frames {
@@ -274,9 +275,9 @@ impl Message {
     }
   }
 
-  pub fn push(&mut self, frame:&str) -> Result<()> {
+  pub fn push<T>(&mut self, frame:T) -> Result<()> where T:AsRef<str> {
     unsafe {
-      zyre_sys::zmsg_pushstr(self.sys, CString::new(frame)?.as_ptr());
+      zyre_sys::zmsg_pushstr(self.sys, CString::new(frame.as_ref())?.as_ptr());
     }
 
     Ok(())
