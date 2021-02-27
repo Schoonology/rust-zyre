@@ -1,6 +1,6 @@
 extern crate zyre_sys;
 
-use std::error;
+use std::convert::TryInto;
 use std::ffi::{ CStr, CString };
 use std::fmt;
 use std::result;
@@ -17,30 +17,15 @@ pub enum Error {
   ReadInterrupted,
 }
 
-impl error::Error for Error {
-  fn description(&self) -> &str {
-    match *self {
-      Error::ToCString(ref inner) => inner.description(),
-      Error::FromCStr(ref inner) => inner.description(),
-      Error::StartFailed => "Zyre node failed to start",
-      Error::JoinFailed => "Failed to join Zyre group",
-      Error::LeaveFailed => "Failed to leave Zyre group",
-      Error::ReadInterrupted => "Read was interrupted",
-    }
-  }
-}
-
 impl fmt::Debug for Error {
   fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-    use std::error::Error;
-    write!(formatter, "{}", (*self).description())
+    write!(formatter, "{}", self)
   }
 }
 
 impl fmt::Display for Error {
   fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-    use std::error::Error;
-    write!(formatter, "{}", (*self).description())
+    write!(formatter, "{}", self)
   }
 }
 
@@ -273,7 +258,7 @@ impl Message {
 
   pub fn size(&self) -> usize {
     unsafe {
-      zyre_sys::zmsg_size(self.sys)
+      zyre_sys::zmsg_size(self.sys).try_into().unwrap()
     }
   }
 
