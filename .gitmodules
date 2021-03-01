@@ -1,0 +1,3 @@
+[submodule "rust-zyre-sys"]
+	path = rust-zyre-sys
+	url = https://github.com/adsharma/rust-zyre-sys
