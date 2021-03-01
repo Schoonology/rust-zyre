@@ -1,5 +1,8 @@
 extern crate zyre_sys;
+#[macro_use]
+extern crate lazy_static;
 
+use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ffi::{ CStr, CString };
 use std::fmt;
@@ -154,15 +157,57 @@ impl Drop for Zyre {
   }
 }
 
+#[repr(u8)]
+#[derive(Copy, Clone)]
+pub enum EventType {
+    // Control
+    ENTER,
+    EXIT,
+    JOIN,
+    LEAVE,
+    SHOUT,
+    WHISPER,
+}
+
+impl fmt::Debug for EventType {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "{:?}", self)
+    }
+}
+
+lazy_static! {
+    static ref EVENT_MAP: HashMap<&'static str, EventType> = vec![
+        ("ENTER", EventType::ENTER),
+        ("EXIT", EventType::EXIT),
+        ("JOIN", EventType::JOIN),
+        ("LEAVE", EventType::LEAVE),
+        ("SHOUT", EventType::SHOUT),
+        ("WHISPER", EventType::WHISPER)
+    ]
+    .into_iter()
+    .collect();
+}
+
+
 #[derive(Debug)]
 pub struct Event {
   sys: *mut zyre_sys::zyre_event_t,
+  event_type: EventType,
 }
 
 impl Event {
   fn new(event:*mut zyre_sys::zyre_event_t) -> Event {
+    let event_type_str = unsafe { CStr::from_ptr(zyre_sys::zyre_event_type(event)).to_str() };
+    let event_type = match event_type_str {
+        Ok(event) => match EVENT_MAP.get(&event) {
+          Some(v) => v,
+          None => panic!("{:?} event not found", event)
+        }
+        Err(err) => panic!("{:?} error fetching event type", err),
+    };
     Event {
       sys: event,
+      event_type: *event_type,
     }
   }
 
@@ -172,10 +217,8 @@ impl Event {
     }
   }
 
-  pub fn event_type(&self) -> Result<&str> {
-    unsafe {
-      Ok(CStr::from_ptr(zyre_sys::zyre_event_type(self.sys)).to_str()?)
-    }
+  pub fn event_type(&self) -> EventType {
+    self.event_type
   }
 
   pub fn peer_uuid(&self) -> Result<&str> {
