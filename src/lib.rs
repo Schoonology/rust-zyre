@@ -1,6 +1,9 @@
 extern crate zyre_sys;
+#[macro_use]
+extern crate lazy_static;
 
-use std::error;
+use std::collections::HashMap;
+use std::convert::TryInto;
 use std::ffi::{ CStr, CString };
 use std::fmt;
 use std::result;
@@ -17,30 +20,15 @@ pub enum Error {
   ReadInterrupted,
 }
 
-impl error::Error for Error {
-  fn description(&self) -> &str {
-    match *self {
-      Error::ToCString(ref inner) => inner.description(),
-      Error::FromCStr(ref inner) => inner.description(),
-      Error::StartFailed => "Zyre node failed to start",
-      Error::JoinFailed => "Failed to join Zyre group",
-      Error::LeaveFailed => "Failed to leave Zyre group",
-      Error::ReadInterrupted => "Read was interrupted",
-    }
-  }
-}
-
 impl fmt::Debug for Error {
   fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-    use std::error::Error;
-    write!(formatter, "{}", (*self).description())
+    write!(formatter, "{}", self)
   }
 }
 
 impl fmt::Display for Error {
   fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-    use std::error::Error;
-    write!(formatter, "{}", (*self).description())
+    write!(formatter, "{}", self)
   }
 }
 
@@ -169,15 +157,56 @@ impl Drop for Zyre {
   }
 }
 
+#[repr(u8)]
+#[derive(Copy, Clone, Debug)]
+pub enum EventType {
+    // Control
+    ENTER,
+    EXIT,
+    JOIN,
+    LEAVE,
+    EVASIVE,
+    SILENT,
+    // Data
+    SHOUT,
+    WHISPER,
+}
+
+lazy_static! {
+    static ref EVENT_MAP: HashMap<&'static str, EventType> = vec![
+        ("ENTER", EventType::ENTER),
+        ("EXIT", EventType::EXIT),
+        ("JOIN", EventType::JOIN),
+        ("LEAVE", EventType::LEAVE),
+        ("EVASIVE", EventType::EVASIVE),
+        ("SILENT", EventType::SILENT),
+        ("SHOUT", EventType::SHOUT),
+        ("WHISPER", EventType::WHISPER)
+    ]
+    .into_iter()
+    .collect();
+}
+
+
 #[derive(Debug)]
 pub struct Event {
   sys: *mut zyre_sys::zyre_event_t,
+  event_type: EventType,
 }
 
 impl Event {
   fn new(event:*mut zyre_sys::zyre_event_t) -> Event {
+    let event_type_str = unsafe { CStr::from_ptr(zyre_sys::zyre_event_type(event)).to_str() };
+    let event_type = match event_type_str {
+        Ok(event) => match EVENT_MAP.get(&event) {
+          Some(v) => v,
+          None => panic!("{:?} event not found", event)
+        }
+        Err(err) => panic!("{:?} error fetching event type", err),
+    };
     Event {
       sys: event,
+      event_type: *event_type,
     }
   }
 
@@ -187,10 +216,8 @@ impl Event {
     }
   }
 
-  pub fn event_type(&self) -> Result<&str> {
-    unsafe {
-      Ok(CStr::from_ptr(zyre_sys::zyre_event_type(self.sys)).to_str()?)
-    }
+  pub fn event_type(&self) -> EventType {
+    self.event_type
   }
 
   pub fn peer_uuid(&self) -> Result<&str> {
@@ -273,7 +300,7 @@ impl Message {
 
   pub fn size(&self) -> usize {
     unsafe {
-      zyre_sys::zmsg_size(self.sys)
+      zyre_sys::zmsg_size(self.sys).try_into().unwrap()
     }
   }
 

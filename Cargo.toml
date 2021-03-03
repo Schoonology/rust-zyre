@@ -10,4 +10,5 @@ readme = "README.md"
 license = "MIT"
 
 [dependencies]
-zyre-sys = { version = "0.1.0", path = "zyre-sys" }
+zyre-sys = { version = "0.1.0", path = "rust-zyre-sys" }
+lazy_static = "1.4.0"
